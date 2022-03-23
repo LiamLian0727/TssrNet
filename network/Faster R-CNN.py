@@ -15,7 +15,7 @@ Use_Cuda = False
 TOKEN = '9f131c8c711d'
 DEVICE = torch.device("cuda:0" if Use_Cuda and torch.cuda.is_available() else "cpu")
 root = 'D:/deeplearn/Instance/交通标志/Traffic identification/network/dataset/CASIA'
-model_save_path = os.path.join('/checkpoint', 'model.pth')
+model_save_path = os.path.join('/checkpoint', 'faster_RCNN_model.pth')
 
 print('DEVICE is : ', DEVICE)
 print(f'Load in {root}: ')
@@ -47,6 +47,7 @@ def train(model, device, train_loader, optimizer, epoch):
         for i in range(len(imgs)):
             d = {}
             d['boxes'], d['labels'] = get_all_bboxs_and_labels(texts[i], symbols[i], arrow_heads[i])
+            d['boxes'], d['labels'] = d['boxes'].to(DEVICE), d['labels'].to(DEVICE)
             targets.append(d)
         optimizer.zero_grad()
         output = model(imgs, targets)
@@ -79,12 +80,13 @@ def test(model, device, test_loader):
             for batch in range(len(imgs)):
                 d = {}
                 d['boxes'], d['labels'] = get_all_bboxs_and_labels(texts[batch], symbols[batch], arrow_heads[batch])
+                d['boxes'], d['labels'] = d['boxes'].to(DEVICE), d['labels'].to(DEVICE)
                 targets.append(d)
             predictions = model(imgs)
             for batch in range(len(predictions)):
                 tp, fp, total_num_gt, total_num_infer = 0, 0, 0, 0
-                ious = bbox_overlaps(boxes=predictions[batch]['boxes'].numpy().astype('float64'),
-                                     query_boxes=targets[batch]['boxes'].numpy().astype('float64')
+                ious = bbox_overlaps(boxes=predictions[batch]['boxes'].numpy().to('cpu').astype('float64'),
+                                     query_boxes=targets[batch]['boxes'].numpy().to('cpu').astype('float64')
                                      )
                 # iou = [len(boxes),len(query)]
                 ious_match = np.where(ious > 0.7, 1, 0)
@@ -95,7 +97,7 @@ def test(model, device, test_loader):
                                 tp += 1
                             else:
                                 fp += 1
-                recall = 100.0 * tp / len(targets[batch]['labels'] + 1e-8)
+                recall = 100.0 * tp / (len(targets[batch]['labels']) + 1e-8)
                 precision = 100.0 * tp / (tp + fp + 1e-8)
                 F1 = recall * precision / (recall + precision + 1e-8)
                 test_recall.append(recall)
@@ -132,12 +134,13 @@ for i in range(begin, epoch):
     if (i + 1) % 5 == 0:
         post_to_weixi(TOKEN,
                       'Faster R-CNN demo',
-                      f'AutoDL Linux/pytorch{torch.__version__}+{DEVICE}',
-                      f'Epoch: {i} / {epoch}' +
-                      f'\ntrain Loss: {train_loss[-1]}' +
-                      f'\ntest Recall: {sum(test_recall) / len(test_recall)}' +
-                      f'\ntest Precision: {sum(test_precision) / len(test_precision)}' +
-                      f'\nF1-Score: {sum(test_F1) / len(test_F1)}')
+                      'AutoDL Linux+{}'.format(DEVICE),
+                      'Epoch:{}/{}, R : {:.1f}, P : {:.1f}'.format(i,
+                                                                   epoch,
+                                                                   sum(test_recall) / len(test_recall),
+                                                                   sum(test_precision) / len(test_precision)
+                                                                   )
+                      )
     StepLR.step()
     if EPOTH_TIMES and i == EPOTH_TIMES:
         torch.save({
