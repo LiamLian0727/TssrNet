@@ -2,33 +2,6 @@ import torch
 from bbox import bbox_overlaps
 
 
-def get_ids_and_bboxs(bbox_type):
-    ids, bboxs = [], []
-    for batch in bbox_type:
-        id_batch, bbox_batch = [], []
-        if not batch:
-            ids.append(batch)
-            bboxs.append(batch)
-            continue
-        for item in batch:
-            id_batch.append(item['id'])
-            bbox_point = item['bbox']
-            # [y_min,x_min,y_max,x_max] -> [x_min,y_min,x_max,y_max]
-            bbox_point[0], bbox_point[1] = bbox_point[1], bbox_point[0]
-            bbox_point[2], bbox_point[3] = bbox_point[3], bbox_point[2]
-            bbox_batch.append(torch.Tensor(bbox_point))
-        ids.append(id_batch)
-        bbox_batch = torch.stack(bbox_batch, dim=0)
-        bboxs.append(bbox_batch)
-    return {'ids': ids,
-            'bboxs': bboxs}
-
-
-def get_all_type_bboxs(texts, symbols, arrow_heads):
-    return {'texts': get_ids_and_bboxs(texts),
-            'symbols': get_ids_and_bboxs(symbols),
-            'arrow_heads': get_ids_and_bboxs(arrow_heads)}
-
 
 dic_symbol = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11, 12: 12, 13: 13, 14: 14, 15: 15,
               16: 16, 21: 17, 22: 18, 45: 19, 30: 20, 31: 21, 32: 22, 33: 23, 40: 24, 41: 25, 43: 26, 44: 27, 46: 28,
@@ -44,25 +17,16 @@ def get_all_bboxs_and_labels(texts, symbols, arrow_heads):
     if texts:
         for i in texts:
             bbox_point = i['bbox']
-            # [y_min,x_min,y_max,x_max] -> [x_min,y_min,x_max,y_max]
-            bbox_point[0], bbox_point[1] = bbox_point[1], bbox_point[0]
-            bbox_point[2], bbox_point[3] = bbox_point[3], bbox_point[2]
             bboxs.append(bbox_point)
             labels.append(55)
     if symbols:
         for i in symbols:
             bbox_point = i['bbox']
-            # [y_min,x_min,y_max,x_max] -> [x_min,y_min,x_max,y_max]
-            bbox_point[0], bbox_point[1] = bbox_point[1], bbox_point[0]
-            bbox_point[2], bbox_point[3] = bbox_point[3], bbox_point[2]
             bboxs.append(bbox_point)
             labels.append(dic_symbol[int(i['class'])])
     if arrow_heads:
         for i in arrow_heads:
             bbox_point = i['bbox']
-            # [y_min,x_min,y_max,x_max] -> [x_min,y_min,x_max,y_max]
-            bbox_point[0], bbox_point[1] = bbox_point[1], bbox_point[0]
-            bbox_point[2], bbox_point[3] = bbox_point[3], bbox_point[2]
             bboxs.append(bbox_point)
             labels.append(dic_arrowhead[int(i['class'])])
     if bboxs:

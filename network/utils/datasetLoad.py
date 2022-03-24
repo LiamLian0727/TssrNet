@@ -36,6 +36,7 @@ class CasiaDataset(Dataset):
         self.img = image
         self.h = h
         self.w = w
+        self.resize = transforms.Resize([h, w])
 
     def __getitem__(self, index):
         """
@@ -47,9 +48,9 @@ class CasiaDataset(Dataset):
         img_name = os.path.splitext(img_name)[0]
         img = Image.open(os.path.join(self.path, 'img', str(num), img_name + ".jpg")).convert('RGB')
         load_img = self.transform(img)  # 转化tensor类型
-        c, h, w = load_img.shape
-        pad = nn.ZeroPad2d(padding=(0, self.w - w, 0, self.h - h))
-        load_img = pad(load_img)
+        _, h, w = load_img.shape
+        load_img = self.resize(load_img)
+        multiple_h, multiple_w = 1. * self.h / h, 1. * self.w / w
         load_json = json.load(open(os.path.join(self.path, 'gt', str(num), img_name + ".json"), 'r', encoding="utf-8"))
         # subdivision of each item in the json
         # 路标类别
@@ -61,6 +62,12 @@ class CasiaDataset(Dataset):
         # 箭头信息及bbox
         arrow_heads = load_json["arrow_heads"]
         # 关系信息（关联关系association_relation与指向关系pointing_relation）
+        for item in [texts, symbols, arrow_heads]:
+            for i in item:
+                bbox_point = i['bbox']
+                # [y_min,x_min,y_max,x_max] -> [x_min,y_min,x_max,y_max]
+                bbox_point[0], bbox_point[1] = bbox_point[1] * multiple_h, bbox_point[0] * multiple_w
+                bbox_point[2], bbox_point[3] = bbox_point[3] * multiple_h, bbox_point[2] * multiple_w
         relations = load_json["relations"]
 
         load_txt = open(os.path.join(self.path, 'semantic_description', str(num), img_name + ".txt"), 'r',
